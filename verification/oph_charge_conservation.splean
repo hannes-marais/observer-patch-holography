@@ -1,0 +1,59 @@
+-- THE CAPSTONE: what can be constructed from the vacuum.
+--
+-- The arc: null-space creation (you can seed content into a null sector) -> the finite
+-- holographic quota + conservation (creating here costs an area there, or the total must
+-- grow) -> and now WHAT a "thing" constructed from the vacuum can be.
+--
+-- In OPH a "thing" is a stable defect (unrepairable residual); the vacuum is the defect-free
+-- consensus. A defect carries a topological CHARGE living in an abelian group G (vacuum = the
+-- identity `zero`, a defect = q, its antidefect = neg q). Charge is conserved. Therefore:
+--
+--   pair_conserves       : adding a defect-antidefect pair (q, neg q) leaves the total unchanged
+--   pair_from_vacuum     : from the vacuum you MAY birth a pair and stay at vacuum charge (zero)
+--   lone_defect_forbidden: a LONE defect of nonzero charge CANNOT come from the vacuum
+--                          (it would change the total charge) -- no single "thing from nothing".
+--
+-- This is pair production: matter from the vacuum comes only as charge-neutral pairs, costed and
+-- conserved -- creation FROM the vacuum, not FROM nothing. Proved from the abelian-group axioms.
+-- Run: spleanql oph_charge_conservation.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+inductive False : Prop where
+
+def apf : (A : Type) -> (B : Type) -> (f : A -> B) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} B (f x) (f y) :=
+  fun (A : Type) (B : Type) (f : A -> B) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} B (f x) (f y)) (Eq.refl.{1} B (f x)) y h
+def eqtrans : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> Eq.{1} A x y -> Eq.{1} A y z -> Eq.{1} A x z :=
+  fun (A : Type) (x : A) (y : A) (z : A) (h1 : Eq.{1} A x y) (h2 : Eq.{1} A y z) =>
+    Eq.rec.{1,0} A y (fun (z : A) (t : Eq.{1} A y z) => Eq.{1} A x z) h1 z h2
+def eqsym : (A : Type) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} A y x :=
+  fun (A : Type) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} A y x) (Eq.refl.{1} A x) y h
+
+-- topological charge: an abelian group (vacuum = zero, defect = q, antidefect = neg q)
+axiom G : Type
+axiom zero : G
+axiom add : G -> G -> G
+axiom neg : G -> G
+axiom add_zero_r : (a : G) -> Eq.{1} G (add a zero) a
+axiom add_zero_l : (a : G) -> Eq.{1} G (add zero a) a
+axiom add_neg_r : (a : G) -> Eq.{1} G (add a (neg a)) zero
+
+theorem pair_conserves : (t : G) -> (q : G) -> Eq.{1} G (add t (add q (neg q))) t :=
+  fun (t : G) (q : G) =>
+    eqtrans G (add t (add q (neg q))) (add t zero) t
+      (apf G G (fun (z : G) => add t z) (add q (neg q)) zero (add_neg_r q))
+      (add_zero_r t)
+
+theorem pair_from_vacuum : (q : G) -> Eq.{1} G (add zero (add q (neg q))) zero :=
+  fun (q : G) => pair_conserves zero q
+
+theorem lone_defect_forbidden :
+  (q : G) -> (Eq.{1} G q zero -> False) -> Eq.{1} G (add zero q) zero -> False :=
+  fun (q : G) (hq : Eq.{1} G q zero -> False) (h : Eq.{1} G (add zero q) zero) =>
+    hq (eqtrans G q (add zero q) zero (eqsym G (add zero q) q (add_zero_l q)) h)
+
+#axioms pair_conserves
+#axioms pair_from_vacuum
+#axioms lone_defect_forbidden

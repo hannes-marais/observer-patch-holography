@@ -1,0 +1,73 @@
+-- BUILDING ON OPH: the DYNAMICAL Proposition 4.2 — multi-step Lyapunov
+-- convergence — the piece OPH's Lean leaves `sorry` (localRepair/Repair) and
+-- that the algebraic files (oph_repair_general.splean) capture only as a ONE-SHOT
+-- retraction. Here repair is a genuine ITERATED process with a mismatch potential.
+--
+-- Model: an abstract state S, a Lyapunov potential phi : S -> Nat (the mismatch
+-- count / Reality Def 2 potential), and a repair step : S -> S obeying the descent
+-- law phi(step s) = pred(phi s): each repair step reduces the mismatch by one
+-- (a state already at consensus, phi = 0, stays at 0 since pred 0 = 0).
+--
+-- Result (proved by induction on the potential, axiom-free modulo the carrier+descent):
+--   repair_converges : from ANY state s, iterating repair phi(s) times reaches
+--                      consensus (phi = 0). Bounded-time convergence of the
+--                      observer-consensus loop.
+-- Run: spleanql oph_repair_dynamical.splean
+
+inductive Nat : Type where
+  | zero : Nat
+  | succ : Nat -> Nat
+
+def pred : Nat -> Nat :=
+  fun (n : Nat) => Nat.rec.{1} (fun (x : Nat) => Nat) zero (fun (k : Nat) (ih : Nat) => k) n
+
+-- iterpred n = pred applied n times (the abstract descent trajectory)
+def iterpred : Nat -> Nat -> Nat :=
+  fun (n : Nat) => Nat.rec.{1} (fun (x : Nat) => Nat -> Nat)
+    (fun (x : Nat) => x) (fun (k : Nat) (ih : Nat -> Nat) => fun (x : Nat) => ih (pred x)) n
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+
+def apf : (A : Type) -> (B : Type) -> (f : A -> B) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} B (f x) (f y) :=
+  fun (A : Type) (B : Type) (f : A -> B) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} B (f x) (f y)) (Eq.refl.{1} B (f x)) y h
+def eqtrans : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> Eq.{1} A x y -> Eq.{1} A y z -> Eq.{1} A x z :=
+  fun (A : Type) (x : A) (y : A) (z : A) (h1 : Eq.{1} A x y) (h2 : Eq.{1} A y z) =>
+    Eq.rec.{1,0} A y (fun (z : A) (t : Eq.{1} A y z) => Eq.{1} A x z) h1 z h2
+
+-- Nat-level Lyapunov descent: from potential n, n descent steps reach 0.
+theorem converge : (n : Nat) -> Eq.{1} Nat (iterpred n n) zero :=
+  fun (n : Nat) => Nat.rec.{0} (fun (n : Nat) => Eq.{1} Nat (iterpred n n) zero)
+    (Eq.refl.{1} Nat zero) (fun (k : Nat) (ih : Eq.{1} Nat (iterpred k k) zero) => ih) n
+
+-- abstract repair dynamics
+axiom S : Type
+axiom phi : S -> Nat
+axiom step : S -> S
+axiom descent : (s : S) -> Eq.{1} Nat (phi (step s)) (pred (phi s))
+
+def iterstep : Nat -> S -> S :=
+  fun (n : Nat) => Nat.rec.{1} (fun (x : Nat) => S -> S)
+    (fun (s : S) => s) (fun (k : Nat) (ih : S -> S) => fun (s : S) => ih (step s)) n
+
+-- the potential along the repair trajectory tracks the pred-descent of phi(s)
+def track : (n : Nat) -> (s : S) -> Eq.{1} Nat (phi (iterstep n s)) (iterpred n (phi s)) :=
+  fun (n : Nat) => Nat.rec.{0}
+    (fun (n : Nat) => (s : S) -> Eq.{1} Nat (phi (iterstep n s)) (iterpred n (phi s)))
+    (fun (s : S) => Eq.refl.{1} Nat (phi s))
+    (fun (k : Nat) (ih : (s : S) -> Eq.{1} Nat (phi (iterstep k s)) (iterpred k (phi s))) =>
+      fun (s : S) =>
+        eqtrans Nat (phi (iterstep k (step s))) (iterpred k (phi (step s))) (iterpred k (pred (phi s)))
+          (ih (step s))
+          (apf Nat Nat (iterpred k) (phi (step s)) (pred (phi s)) (descent s)))
+    n
+
+-- DYNAMICAL Prop 4.2: from ANY state, phi(s) repair steps reach consensus.
+theorem repair_converges : (s : S) -> Eq.{1} Nat (phi (iterstep (phi s) s)) zero :=
+  fun (s : S) =>
+    eqtrans Nat (phi (iterstep (phi s) s)) (iterpred (phi s) (phi s)) zero
+      (track (phi s) s) (converge (phi s))
+
+#axioms converge
+#axioms repair_converges

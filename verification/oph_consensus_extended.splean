@@ -1,0 +1,70 @@
+-- BUILDING ON OPH: a machine-checked MULTI-OBSERVER consensus theory.
+--
+-- OPH's thesis: "physics is the public fixed point that survives agreement across
+-- overlapping observers." OPH's Lean proves Prop 4.2 only for one demo carrier and
+-- leaves the repair operator `sorry`; my oph_repair_general.splean proved the SINGLE-
+-- observer repair theory for any carrier. This file goes further: it formalizes the
+-- genuinely MULTI-observer content OPH never states as theorems.
+--
+-- Setup: states S, public overlap-values V, a shared canonical reconstruction w,
+-- and several observers with local reads rA, rB, rC : S -> V. Each observer's
+-- read-after-write law cohX : rX (w v) = v says the canonical/public state reads
+-- back correctly to that observer. repairX = w . rX.
+--
+-- Results (all machine-checked; #axioms receipts show exactly what each rests on):
+--   * repairA_idempotent      : each observer's repair reaches a public fixed point
+--   * repairA_respects_gauge   : gauge-invariance (needs NO coherence law -- receipt-verified)
+--   * consistent_is_fixed_A    : public/canonical states are fixed points (faithfulness)
+--   * overlap_consensus        : where two observers' data agree, their public states agree
+--   * canonical_agreement      : on any public state, all observers read the SAME value
+--   * consensus_transitive     : agreement propagates -> the public world is GLOBALLY well-defined
+-- Run: spleanql oph_consensus_extended.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+
+-- congruence, transitivity, symmetry of Eq (from the recursor)
+def apf : (A : Type) -> (B : Type) -> (f : A -> B) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} B (f x) (f y) :=
+  fun (A : Type) (B : Type) (f : A -> B) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} B (f x) (f y)) (Eq.refl.{1} B (f x)) y h
+def eqtrans : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> Eq.{1} A x y -> Eq.{1} A y z -> Eq.{1} A x z :=
+  fun (A : Type) (x : A) (y : A) (z : A) (h1 : Eq.{1} A x y) (h2 : Eq.{1} A y z) =>
+    Eq.rec.{1,0} A y (fun (z : A) (t : Eq.{1} A y z) => Eq.{1} A x z) h1 z h2
+def eqsym : (A : Type) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} A y x :=
+  fun (A : Type) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} A y x) (Eq.refl.{1} A x) y h
+
+axiom S : Type
+axiom V : Type
+axiom w : V -> S
+axiom rA : S -> V
+axiom rB : S -> V
+axiom rC : S -> V
+axiom cohA : (v : V) -> Eq.{1} V (rA (w v)) v
+axiom cohB : (v : V) -> Eq.{1} V (rB (w v)) v
+
+def repairA : S -> S := fun (s : S) => w (rA s)
+
+-- single-observer Prop 4.2 (recap, general carrier)
+theorem repairA_idempotent : (s : S) -> Eq.{1} S (repairA (repairA s)) (repairA s) :=
+  fun (s : S) => apf V S w (rA (w (rA s))) (rA s) (cohA (rA s))
+theorem repairA_respects_gauge :
+  (s : S) -> (t : S) -> Eq.{1} V (rA s) (rA t) -> Eq.{1} S (repairA s) (repairA t) :=
+  fun (s : S) (t : S) (h : Eq.{1} V (rA s) (rA t)) => apf V S w (rA s) (rA t) h
+theorem consistent_is_fixed_A : (v : V) -> Eq.{1} S (repairA (w v)) (w v) :=
+  fun (v : V) => apf V S w (rA (w v)) v (cohA v)
+
+-- NEW multi-observer content
+theorem overlap_consensus :
+  (s : S) -> Eq.{1} V (rA s) (rB s) -> Eq.{1} S (repairA s) (w (rB s)) :=
+  fun (s : S) (h : Eq.{1} V (rA s) (rB s)) => apf V S w (rA s) (rB s) h
+theorem canonical_agreement : (v : V) -> Eq.{1} V (rA (w v)) (rB (w v)) :=
+  fun (v : V) => eqtrans V (rA (w v)) v (rB (w v)) (cohA v) (eqsym V (rB (w v)) v (cohB v))
+theorem consensus_transitive :
+  (s : S) -> Eq.{1} V (rA s) (rB s) -> Eq.{1} V (rB s) (rC s) -> Eq.{1} S (w (rA s)) (w (rC s)) :=
+  fun (s : S) (hAB : Eq.{1} V (rA s) (rB s)) (hBC : Eq.{1} V (rB s) (rC s)) =>
+    apf V S w (rA s) (rC s) (eqtrans V (rA s) (rB s) (rC s) hAB hBC)
+
+#axioms overlap_consensus
+#axioms canonical_agreement
+#axioms consensus_transitive

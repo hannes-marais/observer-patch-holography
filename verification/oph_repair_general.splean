@@ -1,0 +1,67 @@
+-- IMPROVEMENT ON OPH: a GENERAL, machine-checked account of the Proposition 4.2
+-- repair core, replacing OPH's `sorry`-defined Repair (Primitives.lean:133) and
+-- the `sorry` congruence repair_respects_gauge.
+--
+-- OPH's Lean proves Prop 4.2 only for a concrete demoCarrier and leaves the
+-- repair operator itself as `sorry`. Here the repair dynamics is proved ONCE for
+-- an ARBITRARY carrier, from a single explicit minimal law, and then shown
+-- non-vacuous by a concrete witness.
+--
+-- Abstraction: OPH's repair is w . r, where
+--   r : S -> V   reads the observable overlap data (obsMap),
+--   w : V -> S   writes the gauge-canonical representative.
+-- The ONLY assumption is the read-after-write law  coh : r (w v) = v
+-- ("a canonical representative reads back its own overlap data").
+--
+-- Axiom receipts below make the dependency structure explicit and reveal a
+-- decomposition OPH does not state:
+--   * repair_respects_gauge needs NO coherence law — it is pure congruence;
+--   * only idempotence and faithfulness use coh.
+-- Run: spleanql oph_repair_general.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+
+-- ---------- general carrier ----------
+axiom S : Type
+axiom V : Type
+axiom r : S -> V
+axiom w : V -> S
+axiom coh : (v : V) -> Eq.{1} V (r (w v)) v
+
+def repair : S -> S := fun (s : S) => w (r s)
+
+def apw : (x : V) -> (y : V) -> Eq.{1} V x y -> Eq.{1} S (w x) (w y) :=
+  fun (x : V) (y : V) (h : Eq.{1} V x y) =>
+    Eq.rec.{1,0} V x (fun (y : V) (t : Eq.{1} V x y) => Eq.{1} S (w x) (w y)) (Eq.refl.{1} S (w x)) y h
+
+-- Prop 4.2 for ANY carrier:
+theorem repair_idempotent : (s : S) -> Eq.{1} S (repair (repair s)) (repair s) :=
+  fun (s : S) => apw (r (w (r s))) (r s) (coh (r s))
+
+theorem repair_respects_gauge :
+  (s : S) -> (t : S) -> Eq.{1} V (r s) (r t) -> Eq.{1} S (repair s) (repair t) :=
+  fun (s : S) (t : S) (h : Eq.{1} V (r s) (r t)) => apw (r s) (r t) h
+
+theorem consistent_is_fixed : (v : V) -> Eq.{1} S (repair (w v)) (w v) :=
+  fun (v : V) => apw (r (w v)) v (coh v)
+
+#axioms repair_idempotent
+#axioms repair_respects_gauge
+#axioms consistent_is_fixed
+
+-- ---------- non-vacuity: a concrete carrier discharges `coh` axiom-free ----------
+-- Two-patch net: S := Pair of Bit, V := Bit, r := fst, w := (fun b => mk b b).
+inductive Bit : Type where
+  | b0 : Bit
+  | b1 : Bit
+inductive Pair : Type where
+  | mk : Bit -> Bit -> Pair
+def fst : Pair -> Bit :=
+  fun (p : Pair) => Pair.rec.{1} (fun (x : Pair) => Bit) (fun (x : Bit) (y : Bit) => x) p
+
+-- the read-after-write law holds for this carrier, with NO axioms:
+theorem coh_concrete : (b : Bit) -> Eq.{1} Bit (fst (mk b b)) b :=
+  fun (b : Bit) => Eq.refl.{1} Bit b
+
+#axioms coh_concrete

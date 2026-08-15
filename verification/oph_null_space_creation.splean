@@ -1,0 +1,82 @@
+-- NEXT LEVEL: the null-space / first-observer question, made precise.
+--
+-- Question: "imagine a NULL-SPACE, not observed yet, so the content is NULL.
+-- Can the first observer influence that null space and create something from nothing?"
+--
+-- In OPH a sector is NULL when it carries no committed record: its observable
+-- read returns nothing. Model the read as partial: r : S -> Opt, where Opt is
+-- (none = null) or (some v = committed value). A write w commits a value.
+--
+-- The answer is a COMPLEMENTARITY, here machine-checked:
+--   * a NULL sector has no value at all, so the first write is UNCONSTRAINED (free);
+--   * a COMMITTED sector has a UNIQUE value, so it is FORCED (no freedom).
+-- Creation is real (writing turns a null into content), but "free creation" and
+-- "committed reality" are mutually exclusive regimes of the same read.
+--
+-- Caveat (honest): this formalizes the CONTENT layer only. The observer, the
+-- write instrument w, and the substrate are presupposed (axioms), exactly as in
+-- OPH's formal basis. So this is creation of public CONTENT from a null SECTOR,
+-- NOT being from absolute nothing. See OPH_INVESTIGATION_REPORT.
+-- Run: spleanql oph_null_space_creation.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+inductive True : Prop where
+  | triv : True
+inductive False : Prop where
+
+def apf : (A : Type) -> (B : Type) -> (f : A -> B) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} B (f x) (f y) :=
+  fun (A : Type) (B : Type) (f : A -> B) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} B (f x) (f y)) (Eq.refl.{1} B (f x)) y h
+def eqtrans : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> Eq.{1} A x y -> Eq.{1} A y z -> Eq.{1} A x z :=
+  fun (A : Type) (x : A) (y : A) (z : A) (h1 : Eq.{1} A x y) (h2 : Eq.{1} A y z) =>
+    Eq.rec.{1,0} A y (fun (z : A) (t : Eq.{1} A y z) => Eq.{1} A x z) h1 z h2
+def eqsym : (A : Type) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} A y x :=
+  fun (A : Type) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} A y x) (Eq.refl.{1} A x) y h
+
+axiom V : Type
+inductive Opt : Type where
+  | none : Opt
+  | some : V -> Opt
+
+axiom S : Type
+axiom r : S -> Opt          -- observable read: null (none) or committed (some v)
+axiom w : V -> Opt          -- write instrument (presupposed substrate)
+axiom commit : (v : V) -> Eq.{1} Opt (w v) (some v)   -- a write commits its value
+
+def val : V -> Opt -> V :=
+  fun (d : V) (o : Opt) => Opt.rec.{1} (fun (x : Opt) => V) d (fun (v : V) => v) o
+def some_inj : (v1 : V) -> (v2 : V) -> Eq.{1} Opt (some v1) (some v2) -> Eq.{1} V v1 v2 :=
+  fun (v1 : V) (v2 : V) (h : Eq.{1} Opt (some v1) (some v2)) => apf Opt V (val v1) (some v1) (some v2) h
+
+-- IsNull by large elimination: none -> True, some _ -> False
+def IsNull : Opt -> Prop :=
+  fun (o : Opt) => Opt.rec.{1} (fun (x : Opt) => Prop) True (fun (v : V) => False) o
+
+-- the null is genuinely contentless: a committed value is never the null.
+theorem some_ne_none : (v : V) -> Eq.{1} Opt (some v) none -> False :=
+  fun (v : V) (h : Eq.{1} Opt (some v) none) =>
+    Eq.rec.{1,0} Opt none (fun (o : Opt) (t : Eq.{1} Opt none o) => IsNull o)
+      triv (some v) (eqsym Opt (some v) none h)
+
+-- (1) FREEDOM POLE: a null sector holds NO committed value; nothing forces the first write.
+theorem null_has_no_content :
+  (s : S) -> Eq.{1} Opt (r s) none -> (v : V) -> Eq.{1} Opt (r s) (some v) -> False :=
+  fun (s : S) (hnull : Eq.{1} Opt (r s) none) (v : V) (hsome : Eq.{1} Opt (r s) (some v)) =>
+    some_ne_none v (eqtrans Opt (some v) (r s) none (eqsym Opt (r s) (some v) hsome) hnull)
+
+-- (2) CREATION: writing into the null makes content (the created state is non-null).
+theorem created_not_null : (v : V) -> Eq.{1} Opt (w v) none -> False :=
+  fun (v : V) (h : Eq.{1} Opt (w v) none) =>
+    some_ne_none v (eqtrans Opt (some v) (w v) none (eqsym Opt (w v) (some v) (commit v)) h)
+
+-- (3) FORCED POLE: a committed sector has a UNIQUE value (no freedom to differ).
+theorem committed_is_determined :
+  (s : S) -> (u : V) -> (u2 : V) -> Eq.{1} Opt (r s) (some u) -> Eq.{1} Opt (r s) (some u2) -> Eq.{1} V u u2 :=
+  fun (s : S) (u : V) (u2 : V) (h1 : Eq.{1} Opt (r s) (some u)) (h2 : Eq.{1} Opt (r s) (some u2)) =>
+    some_inj u u2 (eqtrans Opt (some u) (r s) (some u2) (eqsym Opt (r s) (some u) h1) h2)
+
+#axioms null_has_no_content
+#axioms created_not_null
+#axioms committed_is_determined

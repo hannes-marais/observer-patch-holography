@@ -1,0 +1,78 @@
+-- Filling OPH's formal gap: a concrete, non-trivial repair operator with a
+-- machine-checked proof of the Proposition 4.2 content that
+-- Lean/ObserverPatchHolography/Source/.../Primitives.lean leaves as `sorry`
+-- (localRepair:129, Repair:133, repair_respects_gauge).
+--
+-- Carrier: a two-patch net (Reality Def 1.1 at |V|=2). Each patch holds a Bit;
+-- the global state is a Pair. The single edge exposes each patch's value; the
+-- overlap-consistency predicate is "the two patches agree". The mismatch
+-- potential Phi is 0 exactly on the consistent set.
+--
+-- The local recovery move `repair` is the concrete projection copy: patch 2
+-- overwrites its value with patch 1's (a declared recovery move, not `sorry`).
+--
+-- Proven axiom-free / unconditional in the splean kernel:
+--   (1) repair_consistent   -- repair lands in the consistent set (Phi -> 0)
+--   (2) consistent_is_fixed  -- consistent states ARE fixed points (C = Phi^{-1}(0), Reality Prop 1)
+--   (3) repair_idempotent    -- normal-form stability
+--   (4) repair_respects_gauge -- gauge-equivalent inputs share one normal form  <-- OPH's `sorry`
+-- Together: repair terminates at THE unique gauge-invariant normal form for this carrier.
+-- Scope: a concrete |V|=2 instance; general finite patch-nets remain open (see notes).
+-- Run: spleanql oph_repair_prop42.splean
+
+inductive Bit : Type where
+  | b0 : Bit
+  | b1 : Bit
+
+inductive Pair : Type where
+  | mk : Bit -> Bit -> Pair
+
+def fst : Pair -> Bit :=
+  fun (p : Pair) => Pair.rec.{1} (fun (x : Pair) => Bit) (fun (x : Bit) (y : Bit) => x) p
+
+def snd : Pair -> Bit :=
+  fun (p : Pair) => Pair.rec.{1} (fun (x : Pair) => Bit) (fun (x : Bit) (y : Bit) => y) p
+
+-- concrete local recovery move: patch 2 copies patch 1.
+def repair : Pair -> Pair :=
+  fun (p : Pair) => mk (fst p) (fst p)
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+
+-- (1) repair reaches the consistent set: the two patches agree afterwards.
+theorem repair_consistent : (p : Pair) -> Eq.{1} Bit (fst (repair p)) (snd (repair p)) :=
+  fun (p : Pair) => Eq.refl.{1} Bit (fst p)
+
+-- (2) faithfulness (Reality Prop 1, C = Phi^{-1}(0)): consistent states are fixed points.
+theorem consistent_is_fixed :
+  (p : Pair) -> Eq.{1} Bit (fst p) (snd p) -> Eq.{1} Pair (repair p) p :=
+  fun (p : Pair) =>
+    Pair.rec.{0}
+      (fun (p : Pair) => Eq.{1} Bit (fst p) (snd p) -> Eq.{1} Pair (repair p) p)
+      (fun (a : Bit) (b : Bit) (h : Eq.{1} Bit a b) =>
+        Eq.rec.{1, 0} Bit a
+          (fun (y : Bit) (t : Eq.{1} Bit a y) => Eq.{1} Pair (mk a a) (mk a y))
+          (Eq.refl.{1} Pair (mk a a))
+          b h)
+      p
+
+-- (3) normal-form stability: repair is idempotent.
+theorem repair_idempotent : (p : Pair) -> Eq.{1} Pair (repair (repair p)) (repair p) :=
+  fun (p : Pair) => Eq.refl.{1} Pair (repair p)
+
+-- (4) gauge congruence (Prop 4.2 sentence 2, OPH's `sorry`): gauge-equivalent
+-- states (same exposed patch-1 value) repair to the SAME normal form.
+theorem repair_respects_gauge :
+  (p : Pair) -> (q : Pair) -> Eq.{1} Bit (fst p) (fst q) -> Eq.{1} Pair (repair p) (repair q) :=
+  fun (p : Pair) (q : Pair) (h : Eq.{1} Bit (fst p) (fst q)) =>
+    Eq.rec.{1, 0} Bit (fst p)
+      (fun (y : Bit) (t : Eq.{1} Bit (fst p) y) => Eq.{1} Pair (mk (fst p) (fst p)) (mk y y))
+      (Eq.refl.{1} Pair (mk (fst p) (fst p)))
+      (fst q)
+      h
+
+#axioms repair_consistent
+#axioms consistent_is_fixed
+#axioms repair_idempotent
+#axioms repair_respects_gauge

@@ -1,0 +1,67 @@
+-- BLACK HOLES: the other horizon, and the sharpest instance of the null ledger.
+--
+-- A black hole is the DUAL of the de Sitter null-reservoir. de Sitter: the observer
+-- is inside, capacity grows, content crosses OUT. Black hole: the observer is outside,
+-- and infall makes a region NULL to them (the interior) bounded by a MAXIMALLY committed
+-- surface (the horizon, Bekenstein-Hawking entropy = area/4 = saturated quota).
+--
+-- So a black hole is exactly the "insert a null" operation (oph_null_insertion), plus
+-- the HOLOGRAPHIC refinement of open_erases: the infallen value is not destroyed, it is
+-- RE-COMMITTED to the horizon. Two reads: r = bulk/interior, rb = horizon screen.
+--
+--   interior_is_null : after infall nothing readable remains in the bulk (null inside)
+--   info_not_lost    : the value survives, recoverable from the HORIZON read
+--
+-- Together the SAME sector is null-in-the-bulk yet committed-on-the-boundary. That is
+-- (a) the holographic resolution of the information paradox (information on the boundary,
+-- not lost), and (b) the earlier freedom/constraint complementarity = BLACK HOLE
+-- COMPLEMENTARITY: interior is free/null, horizon is forced/committed, no single read
+-- sees both.
+--
+-- HONEST SCOPE: OPH's own corpus EXCLUDES physical black-hole evaporation, Page-curve,
+-- and island claims as non-theorems (falsifiability map). So this is the interpretive
+-- skeleton, not an OPH black-hole theorem. It certifies the LOGIC (null-bulk + committed-
+-- boundary is consistent and information-conserving), not the physics of real holes.
+-- Run: spleanql oph_black_hole_horizon.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+inductive True : Prop where
+  | triv : True
+inductive False : Prop where
+def eqtrans : (A : Type) -> (x : A) -> (y : A) -> (z : A) -> Eq.{1} A x y -> Eq.{1} A y z -> Eq.{1} A x z :=
+  fun (A : Type) (x : A) (y : A) (z : A) (h1 : Eq.{1} A x y) (h2 : Eq.{1} A y z) =>
+    Eq.rec.{1,0} A y (fun (z : A) (t : Eq.{1} A y z) => Eq.{1} A x z) h1 z h2
+def eqsym : (A : Type) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} A y x :=
+  fun (A : Type) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} A y x) (Eq.refl.{1} A x) y h
+axiom V : Type
+inductive Opt : Type where
+  | none : Opt
+  | some : V -> Opt
+def IsNull : Opt -> Prop :=
+  fun (o : Opt) => Opt.rec.{1} (fun (x : Opt) => Prop) True (fun (v : V) => False) o
+theorem some_ne_none : (v : V) -> Eq.{1} Opt (some v) none -> False :=
+  fun (v : V) (h : Eq.{1} Opt (some v) none) =>
+    Eq.rec.{1,0} Opt none (fun (o : Opt) (t : Eq.{1} Opt none o) => IsNull o)
+      triv (some v) (eqsym Opt (some v) none h)
+
+axiom S : Type
+axiom r : S -> Opt            -- bulk/interior read
+axiom rb : S -> Opt           -- horizon screen read
+axiom fall_in : S -> S        -- infall / hole formation
+axiom horizon_law : (s : S) -> Eq.{1} Opt (r (fall_in s)) none     -- interior null to the outside
+axiom holography : (s : S) -> Eq.{1} Opt (rb (fall_in s)) (r s)    -- value re-commits to the horizon
+
+-- (1) the interior goes null: nothing readable remains in the bulk after infall.
+theorem interior_is_null : (s : S) -> (v : V) -> Eq.{1} Opt (r (fall_in s)) (some v) -> False :=
+  fun (s : S) (v : V) (h : Eq.{1} Opt (r (fall_in s)) (some v)) =>
+    some_ne_none v (eqtrans Opt (some v) (r (fall_in s)) none (eqsym Opt (r (fall_in s)) (some v) h) (horizon_law s))
+
+-- (2) information is not lost: the infallen value is recoverable from the HORIZON.
+theorem info_not_lost : (s : S) -> (u : V) -> Eq.{1} Opt (r s) (some u) -> Eq.{1} Opt (rb (fall_in s)) (some u) :=
+  fun (s : S) (u : V) (h : Eq.{1} Opt (r s) (some u)) =>
+    eqtrans Opt (rb (fall_in s)) (r s) (some u) (holography s) h
+
+#axioms interior_is_null
+#axioms info_not_lost

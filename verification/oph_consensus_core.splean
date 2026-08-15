@@ -1,0 +1,42 @@
+-- OPH consensus/repair core, formally certified in the splean kernel (IA, ia-playground).
+-- Toy but faithful skeleton of OPH Paper 4 ("Reality as a Consensus Protocol") and the
+-- Lean "Observable Normal Forms" module: a local observer readout has two states;
+-- `agree` is the public consensus fixed point, `clash` is an inconsistent readout.
+--
+-- Certifies the LOGICAL SHAPE OPH describes, not its physics:
+--   (1) every local state repairs to a single public fixed point (convergence),
+--   (2) repair is idempotent (normal-form stability),
+--   (3) different local readouts reach the same public value (overlap agreement / confluence).
+-- All check [axiom-free] / unconditional.  Run: spleanql oph_consensus_core.splean
+
+inductive Patch : Type where
+  | agree : Patch
+  | clash : Patch
+
+def repair : Patch -> Patch :=
+  fun (s : Patch) => Patch.rec.{1} (fun (x : Patch) => Patch) agree agree s
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+
+-- (1) Consensus convergence: every observer state repairs to the public fixed point.
+theorem consensus_converges : (s : Patch) -> Eq.{1} Patch (repair s) agree :=
+  fun (s : Patch) =>
+    Patch.rec.{0}
+      (fun (s : Patch) => Eq.{1} Patch (repair s) agree)
+      (Eq.refl.{1} Patch agree)
+      (Eq.refl.{1} Patch agree)
+      s
+
+-- (2) Normal-form stability: repair is idempotent.
+theorem repair_idempotent : (s : Patch) -> Eq.{1} Patch (repair (repair s)) (repair s) :=
+  fun (s : Patch) =>
+    Patch.rec.{0}
+      (fun (s : Patch) => Eq.{1} Patch (repair (repair s)) (repair s))
+      (Eq.refl.{1} Patch agree)
+      (Eq.refl.{1} Patch agree)
+      s
+
+-- (3) Overlap agreement / confluence: different local readouts reach the same public value.
+theorem overlap_agreement : Eq.{1} Patch (repair clash) (repair agree) :=
+  Eq.refl.{1} Patch agree

@@ -1,0 +1,78 @@
+-- CLOSING THE LOOP: the holographic quota and the conservation of null-space.
+--
+-- The null/insert proofs (oph_null_space_creation, oph_null_insertion) modelled ONE
+-- sector. Zoom out to the whole screen: capacity is a FINITE ledger of pixels, each
+-- either null (open, fillable) or committed (written). Two facts govern the ledger,
+-- and both are here proved axiom-free:
+--
+--   quota        : nulls <= nulls + committed              (Le nulls (add nulls committed))
+--                  the number of open nulls NEVER exceeds the total capacity.
+--                  This total is exactly OPH's screen-area bound N_CRC.
+--
+--   conservation : add n (succ k) = add (succ n) k
+--                  moving one unit from committed to null preserves the total, so at
+--                  FIXED capacity a new null (nulls+1) costs a committed area (committed-1):
+--                  "some areas must disappear" to open room. New null WITHOUT loss
+--                  requires growing the total (expansion / horizon growth).
+--
+-- Physics reading: in de Sitter the cosmological horizon area is the fixed quota;
+-- opening/writing near the observer is balanced by distant regions crossing OUTSIDE
+-- the horizon (leaving the accessible screen) -- areas literally disappear from the
+-- ledger as others are committed. Expansion is the term that grows the total.
+-- Interpretation layer (see OPH_INVESTIGATION_REPORT), but the quota IS N_CRC, which
+-- is OPH's one empirically-successful number (cosmological-constant magnitude).
+-- Run: spleanql oph_holographic_quota.splean
+
+inductive Eq.{u} (a : Sort u) (x : a) : a -> Prop where
+  | Eq.refl : Eq.{u} a x x
+def apf : (A : Type) -> (B : Type) -> (f : A -> B) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} B (f x) (f y) :=
+  fun (A : Type) (B : Type) (f : A -> B) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} B (f x) (f y)) (Eq.refl.{1} B (f x)) y h
+def eqsym : (A : Type) -> (x : A) -> (y : A) -> Eq.{1} A x y -> Eq.{1} A y x :=
+  fun (A : Type) (x : A) (y : A) (h : Eq.{1} A x y) =>
+    Eq.rec.{1,0} A x (fun (y : A) (t : Eq.{1} A x y) => Eq.{1} A y x) (Eq.refl.{1} A x) y h
+
+inductive Nat : Type where
+  | zero : Nat
+  | succ : Nat -> Nat
+def add : Nat -> Nat -> Nat :=
+  fun (n : Nat) => Nat.rec.{1} (fun (x : Nat) => Nat -> Nat)
+    (fun (m : Nat) => m) (fun (k : Nat) (ih : Nat -> Nat) => fun (m : Nat) => succ (ih m)) n
+def subst : (P : Nat -> Prop) -> (a : Nat) -> (b : Nat) -> Eq.{1} Nat a b -> P a -> P b :=
+  fun (P : Nat -> Prop) (a : Nat) (b : Nat) (h : Eq.{1} Nat a b) (pa : P a) =>
+    Eq.rec.{1,0} Nat a (fun (b : Nat) (t : Eq.{1} Nat a b) => P b) pa b h
+
+def add_zero_right : (n : Nat) -> Eq.{1} Nat (add n zero) n :=
+  fun (n : Nat) => Nat.rec.{0} (fun (n : Nat) => Eq.{1} Nat (add n zero) n)
+    (Eq.refl.{1} Nat zero)
+    (fun (k : Nat) (ih : Eq.{1} Nat (add k zero) k) => apf Nat Nat succ (add k zero) k ih)
+    n
+def add_succ_right : (n : Nat) -> (m : Nat) -> Eq.{1} Nat (add n (succ m)) (succ (add n m)) :=
+  fun (n : Nat) => Nat.rec.{0} (fun (n : Nat) => (m : Nat) -> Eq.{1} Nat (add n (succ m)) (succ (add n m)))
+    (fun (m : Nat) => Eq.refl.{1} Nat (succ m))
+    (fun (k : Nat) (ih : (m : Nat) -> Eq.{1} Nat (add k (succ m)) (succ (add k m))) =>
+      fun (m : Nat) => apf Nat Nat succ (add k (succ m)) (succ (add k m)) (ih m))
+    n
+
+-- CONSERVATION: committed -> null moves preserve the total (some area disappears).
+theorem conservation : (n : Nat) -> (k : Nat) -> Eq.{1} Nat (add n (succ k)) (add (succ n) k) :=
+  fun (n : Nat) (k : Nat) => add_succ_right n k
+
+inductive Le : Nat -> Nat -> Prop where
+  | le_refl : (n : Nat) -> Le n n
+  | le_succ : (n : Nat) -> (m : Nat) -> Le n m -> Le n (succ m)
+
+-- HOLOGRAPHIC QUOTA: open nulls never exceed the total capacity (the screen bound = N_CRC).
+theorem quota : (nulls : Nat) -> (committed : Nat) -> Le nulls (add nulls committed) :=
+  fun (nulls : Nat) (committed : Nat) =>
+    Nat.rec.{0} (fun (c : Nat) => Le nulls (add nulls c))
+      (subst (fun (x : Nat) => Le nulls x) nulls (add nulls zero)
+        (eqsym Nat (add nulls zero) nulls (add_zero_right nulls)) (le_refl nulls))
+      (fun (k : Nat) (ih : Le nulls (add nulls k)) =>
+        subst (fun (x : Nat) => Le nulls x) (succ (add nulls k)) (add nulls (succ k))
+          (eqsym Nat (add nulls (succ k)) (succ (add nulls k)) (add_succ_right nulls k))
+          (le_succ nulls (add nulls k) ih))
+      committed
+
+#axioms conservation
+#axioms quota
