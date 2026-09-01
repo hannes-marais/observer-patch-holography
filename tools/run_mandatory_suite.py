@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Run the documented mandatory scientific suite from a clean checkout (#507).
 
-This is the one command REPRODUCE.md documents and CI enforces:
+This is the one command REPRODUCE.md documents:
 
-    python tools/run_mandatory_suite.py                # standard suite (per-push CI)
+    python tools/run_mandatory_suite.py                # standard suite
     python tools/run_mandatory_suite.py --full         # + the heavy replay/mutation steps
     python tools/run_mandatory_suite.py --certificates # + exact certificate suites
     python tools/run_mandatory_suite.py --certificate-smoke-only
@@ -11,9 +11,9 @@ This is the one command REPRODUCE.md documents and CI enforces:
 The standard suite runs every register validation, certificate check,
 independent replay, and fast mutation gate. Five long-running replay and
 mutation-scan steps (listed in HEAVY_STEP_TITLES, together most of the
-suite's runtime) are excluded from the default run and enforced by --full,
-which the nightly full job and the pre-release checklist execute; the
-default run prints exactly which steps it skipped.
+suite's runtime) are excluded from the default run and included by --full,
+which the pre-release checklist executes; the default run prints exactly which
+steps it skipped.
 
 The mandatory suite validates the scientific claim registry, external inputs,
 public quantitative surfaces, null-model controls, and the paper release
@@ -21,8 +21,7 @@ manifest, then proves those gates reject isolated false-green mutations. It
 proves the full scientific collection imports cleanly (which is what keeps the
 optional cloud/hardware lanes fail-closed) and executes the fast fixture
 suites. The exact certificate suites (#566 port-current, #314 matter-lift) run
-in their own CI workflow on their own triggers;
-`--certificates` runs them here with the same commands.
+through `--certificates` with the same local commands.
 """
 
 from __future__ import annotations
@@ -899,10 +898,10 @@ MANDATORY_STEPS: list[tuple[str, list[str]]] = [
         # The E4 stale-absence guards need the pinned Mathlib source tree on
         # disk and fail closed without it, by design: an unevaluable citation
         # is a finding, never a green. This job never provisions Lean, so the
-        # guards do not run here; they run in the Lean CI build job
-        # (.github/workflows/lean-ci.yml), where the cited paths exist. The
-        # --ignore flag keeps that exclusion visible in the executed command.
-        "Execute the scientific validation fixtures (E4 stale-absence guards excluded here; they run in Lean CI)",
+        # guards do not run here; run them after the Lean workspace provisions
+        # the cited paths. The --ignore flag keeps that exclusion visible in
+        # the executed command.
+        "Execute the scientific validation fixtures (E4 stale-absence guards excluded; run after provisioning Lean)",
         [
             sys.executable,
             "-m",

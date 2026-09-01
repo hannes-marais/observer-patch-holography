@@ -36,9 +36,8 @@ python tools/run_mandatory_suite.py
 ```
 
 `requirements.txt` pins the core dependencies. The runner is the single
-documented mandatory command, and it is the exact command CI
-(`.github/workflows/mandatory-suite.yml`) enforces on every push and PR. The
-default run is the standard suite; five long-running replay/mutation-scan
+documented mandatory command. The default run is the standard suite; five
+long-running replay/mutation-scan
 steps (listed in `HEAVY_STEP_TITLES` inside the runner, together most of the
 suite's runtime) are deferred to
 
@@ -46,8 +45,8 @@ suite's runtime) are deferred to
 python tools/run_mandatory_suite.py --full
 ```
 
-which CI enforces nightly and on demand, and which the release checklist
-runs before publication. The standard run prints exactly which steps it
+which the release checklist runs before publication. The standard run prints
+exactly which steps it
 skipped. The suite
 both collects and executes: claim-registry validation, generated scientific
 register validation, external-data provenance/hash/license-boundary validation,
@@ -56,13 +55,11 @@ pass over `code/`, the scientific validation fixtures in
 `code/audit/` (which includes the scope guard proving no cloud or hardware
 lane is silently collected), the A5 closure ledger checks, and the Phase-0
 proof/non-identifiability receipts. One fixture is excluded from that step:
-`code/audit/test_e4_absence_guards.py` needs the pinned Mathlib sources and
-runs in the Lean CI workflow instead, where the toolchain is provisioned.
+`code/audit/test_e4_absence_guards.py` needs the pinned Mathlib sources. Run it
+after provisioning the Lean workspace with `lake exe cache get` and `lake build`.
 
 The exact certificate suites (#566 port-current, #314 matter-lift, ~26
-minutes) run through the same runner in their own CI workflow
-(`.github/workflows/certificate-suites.yml`) whenever `code/a5_closure/`
-changes and nightly on both platforms:
+minutes) run through the same local runner:
 
 ```bash
 python tools/run_mandatory_suite.py --certificates    # mandatory + certificates
@@ -151,9 +148,9 @@ lake exe cache get
 lake build
 ```
 
-CI (`.github/workflows/lean-ci.yml`) runs both builds with a resumable cache,
-rejects any `sorry`/`admit`/global-axiom regression, and replays the
-Einstein-branch axiom check. `Lean/README.md` documents the layout;
+These builds are the local proof receipt. The inventory and audit helpers under
+`tools/` check `native_decide`, admission, and Einstein-branch axiom boundaries.
+`Lean/README.md` documents the layout;
 `Lean/docs/PROOF_INDEX.md` maps theorems to paper statements.
 
 ## Paper review and publication builds
@@ -171,8 +168,8 @@ This chains `tools/build_tex_papers.py`, the build-warnings gate, manifest
 regeneration, and manifest validation, so a rebuilt PDF can never be committed
 with stale manifest hashes. This review pass may retain the visible release
 identifier from an existing Git tag. It does not publish or replace that tag.
-The CI build uses this mode so draft PDFs can be committed and inspected
-without a version bump.
+Use this mode so draft PDFs can be committed and inspected without a version
+bump.
 
 After review, prepare a publication candidate with a new release identifier:
 
@@ -187,17 +184,18 @@ path, and selected release ID into the shared manifest before final
 validation. Publication remains a separate maintainer action after the
 candidate is committed, pushed, and inspected.
 
-The manually dispatched `Release Channel Integrity` workflow is a
-post-publication integrity check. Do not use it to validate a same-release preview. A
-preview manifest describes the local bytes under review, while the tagged
-GitHub Release remains fixed until the maintainer publishes a new release.
+For a post-publication integrity check, run
+`python3 tools/check_github_release_channel.py`. Do not use it to validate a
+same-release preview. A preview manifest describes the local bytes under review,
+while the tagged GitHub Release remains fixed until the maintainer publishes a
+new release.
 
 Both builders derive `SOURCE_DATE_EPOCH` from the visible date in
 `paper/release_info.tex`, force UTC, avoid host-font selection, and retain the
-logs consumed by the warning gate. The preview CI performs the sequence
-twice on a clean Ubuntu runner and rejects any paper or book PDF whose SHA-256
-changes on the second pass. A local check can make the same comparison with
-`sha256sum` (or `shasum -a 256` on macOS).
+logs consumed by the warning gate. For reproducibility, perform the sequence
+twice in a clean environment and reject any paper or book PDF whose SHA-256
+changes on the second pass. Compare with `sha256sum` (or `shasum -a 256` on
+macOS).
 
 The book's SVGs have source-bound canonical PDF renderings under
 `assets/book_pdf_renderings/`. A normal build validates the exact SVG and PDF
@@ -221,10 +219,9 @@ rebuild:
 git diff --exit-code -- paper flagship extra book/reverse-engineering-reality-book.pdf
 ```
 
-The `Paper Preview Build` workflow enforces this check. A committed PDF and
-manifest pair therefore cannot substitute another paper's bytes at the
-expected path; the source rebuild restores the correct artifact and makes the
-job fail.
+This check ensures a committed PDF and manifest pair cannot substitute another
+paper's bytes at the expected path; the source rebuild restores the correct
+artifact and exposes the drift.
 
 ## External comparison data
 

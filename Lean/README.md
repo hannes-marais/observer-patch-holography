@@ -95,8 +95,8 @@ lake build
 ```
 
 Its `.lake/packages` is a symlink into the umbrella project's package
-directory, so the shared Mathlib checkout is reused when building locally;
-continuous integration recreates it as a real directory.
+directory, so the shared Mathlib checkout is reused when building locally. A
+clean isolated environment may materialize the same package directory instead.
 
 ## Documentation
 

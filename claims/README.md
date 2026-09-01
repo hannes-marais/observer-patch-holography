@@ -52,6 +52,6 @@ every canonical claim ID with no unknown IDs, that the one-row-per-claim novelty
 projections have no duplicates, and that paper sources do not depend on direct paths to this
 registry. The falsification matrix may keep several independently scoped rows for one claim.
 
-The GitHub workflow runs the validator on registry changes and on public claim-surface changes.
+Run the validator whenever the registry or a public claim surface changes.
 When a pull request changes paper TeX or the README claim narrative, it must also touch this
 registry/check surface. That rule keeps the registry from becoming a stale snapshot.
